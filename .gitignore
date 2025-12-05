@@ -1,0 +1,9 @@
+health-manage-frontend/node_modules/
+health-manage-frontend/dist/
+health-manage-backend/target/
+scripts/health-system-images.tar
+scripts/*.tar
+.DS_Store
+.idea/
+.vscode/
+*.log
