@@ -32,11 +32,19 @@ CREATE TABLE IF NOT EXISTS health_data (
     blood_sugar DECIMAL(4, 1) COMMENT '血糖(mmol/L)',
     record_date DATE NOT NULL COMMENT '记录日期',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    alarm_status TINYINT NOT NULL DEFAULT 0,
     UNIQUE KEY uk_user_date (user_id, record_date)
 ) COMMENT '健康数据表';
 
--- 增加报警状态字段（未报警=0，已报警=1）
-ALTER TABLE health_data ADD COLUMN IF NOT EXISTS alarm_status TINYINT NOT NULL DEFAULT 0;
+SET @col_exists := (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'health_data' AND COLUMN_NAME = 'alarm_status'
+);
+SET @ddl := IF(@col_exists = 0,
+  'ALTER TABLE health_data ADD COLUMN alarm_status TINYINT NOT NULL DEFAULT 0;',
+  'SELECT 1;'
+);
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 1.3 打卡任务表
 CREATE TABLE IF NOT EXISTS check_in_task (
@@ -77,7 +85,7 @@ CREATE TABLE IF NOT EXISTS diet_record (
 
 -- 2.1 插入/更新内置用户
 -- 将原 admin 作为普通用户保留（ID=1），新增管理员 admin2（ID=2）
-INSERT INTO sys_user (id, username, password, nickname, role) VALUES (1, 'admin', '123456', '韩五', 'USER')
+INSERT INTO sys_user (id, username, password, nickname, role) VALUES (1, 'user', '123456', '韩五', 'USER')
 ON DUPLICATE KEY UPDATE password=VALUES(password), nickname=VALUES(nickname), role=VALUES(role);
 
 INSERT INTO sys_user (id, username, password, nickname, role) VALUES (2, 'admin2', '123456', '管理员', 'ADMIN')
@@ -93,6 +101,10 @@ INSERT INTO health_data (user_id, weight, heart_rate, systolic, diastolic, steps
 (1, 64.2, 69, 118, 76, 12000, 5.2, DATE_SUB(CURDATE(), INTERVAL 1 DAY)),
 (1, 65.0, 68, 116, 75, 5600, 5.1, CURDATE())
 ON DUPLICATE KEY UPDATE weight=VALUES(weight), steps=VALUES(steps);
+
+INSERT INTO health_data (user_id, weight, heart_rate, systolic, diastolic, steps, blood_sugar, record_date, alarm_status) VALUES
+(2, 70.0, 105, 150, 95, 3000, 8.2, CURDATE(), 1)
+ON DUPLICATE KEY UPDATE weight=VALUES(weight), heart_rate=VALUES(heart_rate), systolic=VALUES(systolic), diastolic=VALUES(diastolic), steps=VALUES(steps), blood_sugar=VALUES(blood_sugar), alarm_status=VALUES(alarm_status);
 
 -- 2.3 插入打卡任务 (admin, id=1)
 -- 先清空旧任务
@@ -122,6 +134,20 @@ CREATE TABLE IF NOT EXISTS reminder_template (
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP
 ) COMMENT '提醒模板';
 
+INSERT INTO check_in_task_template (task_name, icon, color, target_desc)
+SELECT '晨跑','Bicycle','#409EFF','目标：3公里' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM check_in_task_template WHERE task_name='晨跑');
+INSERT INTO check_in_task_template (task_name, icon, color, target_desc)
+SELECT '多喝水','GobletFull','#67C23A','目标：2000ml' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM check_in_task_template WHERE task_name='多喝水');
+INSERT INTO check_in_task_template (task_name, icon, color, target_desc)
+SELECT '早睡','Moon','#909399','23:00 前睡觉' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM check_in_task_template WHERE task_name='早睡');
+INSERT INTO check_in_task_template (task_name, icon, color, target_desc)
+SELECT '吃水果','Apple','#F56C6C','每天一个苹果' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM check_in_task_template WHERE task_name='吃水果');
+
+INSERT INTO reminder_template (name, content, trigger_time, enabled)
+SELECT '多喝水提醒','今天记得多喝水','09:00',1 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM reminder_template WHERE name='多喝水提醒');
+INSERT INTO reminder_template (name, content, trigger_time, enabled)
+SELECT '早睡提醒','23:00 前睡觉','22:30',1 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM reminder_template WHERE name='早睡提醒');
+
 -- 2.4 插入饮食记录 (admin, id=1)
 DELETE FROM diet_record WHERE user_id = 1 AND record_date = CURDATE();
 
@@ -131,4 +157,5 @@ INSERT INTO diet_record (user_id, meal_type, food_name, calories, amount, record
 (1, 'lunch', '米饭', 174, '1碗', CURDATE()),
 (1, 'lunch', '香煎鸡胸肉', 220, '150g', CURDATE()),
 (1, 'lunch', '西兰花', 50, '1份', CURDATE()),
-(1, 'dinner', '蔬菜沙拉', 120, '1碗', CURDATE());
+(1, 'dinner', '蔬菜沙拉', 120, '1碗', CURDATE()),
+(1, 'snack', '酸奶', 120, '1杯', CURDATE());
