@@ -35,7 +35,6 @@
               
               <div class="actions">
                 <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
-                <el-link type="primary">忘记密码？</el-link>
               </div>
               
               <el-button type="primary" class="submit-btn" size="large" @click="handleLogin">登录</el-button>

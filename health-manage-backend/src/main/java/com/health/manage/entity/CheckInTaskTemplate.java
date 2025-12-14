@@ -8,13 +8,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_user")
-public class User {
+@TableName("check_in_task_template")
+public class CheckInTaskTemplate {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String username;
-    private String password;
-    private String nickname;
-    private String role;
+    private String taskName;
+    private String icon;
+    private String color;
+    private String targetDesc;
     private LocalDateTime createTime;
 }

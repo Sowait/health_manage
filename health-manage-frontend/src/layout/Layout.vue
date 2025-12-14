@@ -15,24 +15,40 @@
         text-color="#333"
         active-text-color="#42b983"
       >
-        <el-menu-item index="/dashboard">
+        <el-menu-item v-if="user.role !== 'ADMIN'" index="/dashboard">
           <el-icon><Odometer /></el-icon>
           <template #title>仪表盘</template>
         </el-menu-item>
         
-        <el-menu-item index="/health-data">
+        <el-menu-item v-if="user.role !== 'ADMIN'" index="/health-data">
           <el-icon><Document /></el-icon>
           <template #title>健康档案</template>
         </el-menu-item>
         
-        <el-menu-item index="/check-in">
+        <el-menu-item v-if="user.role !== 'ADMIN'" index="/check-in">
           <el-icon><Calendar /></el-icon>
           <template #title>每日打卡</template>
         </el-menu-item>
         
-        <el-menu-item index="/diet">
+        <el-menu-item v-if="user.role !== 'ADMIN'" index="/diet">
           <el-icon><Food /></el-icon>
           <template #title>饮食管理</template>
+        </el-menu-item>
+        <el-menu-item v-if="user.role === 'ADMIN'" index="/admin">
+          <el-icon><Odometer /></el-icon>
+          <template #title>管理员仪表盘</template>
+        </el-menu-item>
+        <el-menu-item v-if="user.role === 'ADMIN'" index="/admin/users">
+          <el-icon><Document /></el-icon>
+          <template #title>用户管理</template>
+        </el-menu-item>
+        <el-menu-item v-if="user.role === 'ADMIN'" index="/admin/templates">
+          <el-icon><Calendar /></el-icon>
+          <template #title>模板管理</template>
+        </el-menu-item>
+        <el-menu-item v-if="user.role === 'ADMIN'" index="/admin/health-records">
+          <el-icon><Document /></el-icon>
+          <template #title>健康档案管理</template>
         </el-menu-item>
       </el-menu>
 
@@ -103,7 +119,8 @@ const pageTitle = computed(() => {
     '/dashboard': '仪表盘',
     '/health-data': '健康档案',
     '/check-in': '每日打卡',
-    '/diet': '饮食管理'
+    '/diet': '饮食管理',
+    '/admin/health-records': '健康档案管理'
   }
   return map[route.path] || '健康管理系统'
 })
@@ -122,6 +139,8 @@ const handleCommand = async (command: string) => {
     localStorage.removeItem('user')
     ElMessage.success('已退出登录')
     router.push('/login')
+  } else if (command === 'profile') {
+    router.push('/profile')
   }
 }
 </script>

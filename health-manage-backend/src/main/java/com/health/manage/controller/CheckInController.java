@@ -88,6 +88,54 @@ public class CheckInController {
         return result;
     }
 
+    @GetMapping("/history")
+    public Map<String, Object> history(
+            @RequestParam Long userId,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        Map<String, Object> result = new HashMap<>();
+        QueryWrapper<CheckInRecord> query = new QueryWrapper<>();
+        query.eq("user_id", userId);
+        if (startDate != null && !startDate.isEmpty()) {
+            query.ge("record_date", LocalDate.parse(startDate));
+        }
+        if (endDate != null && !endDate.isEmpty()) {
+            query.le("record_date", LocalDate.parse(endDate));
+        }
+        query.orderByDesc("record_date");
+
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<CheckInRecord> p =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, pageSize);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<CheckInRecord> pageResult =
+                recordMapper.selectPage(p, query);
+
+        List<CheckInRecord> records = pageResult.getRecords();
+        List<Long> ids = records.stream().map(CheckInRecord::getTaskId).distinct().collect(Collectors.toList());
+        Map<Long, String> nameMap = new HashMap<>();
+        if (!ids.isEmpty()) {
+            List<CheckInTask> tasks = taskMapper.selectList(new QueryWrapper<CheckInTask>().in("id", ids));
+            for (CheckInTask t : tasks) nameMap.put(t.getId(), t.getTaskName());
+        }
+        List<Map<String, Object>> out = records.stream().map(r -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", r.getId());
+            m.put("userId", r.getUserId());
+            m.put("taskId", r.getTaskId());
+            m.put("recordDate", r.getRecordDate());
+            m.put("createTime", r.getCreateTime());
+            m.put("taskName", nameMap.getOrDefault(r.getTaskId(), null));
+            return m;
+        }).collect(Collectors.toList());
+
+        result.put("code", 200);
+        result.put("data", out);
+        result.put("total", pageResult.getTotal());
+        return result;
+    }
+
     @PostMapping("/task/add")
     public Map<String, Object> addTask(@RequestBody CheckInTask task) {
         task.setCreateTime(LocalDateTime.now());

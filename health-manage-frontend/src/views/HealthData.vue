@@ -18,7 +18,7 @@
     </div>
 
     <el-card shadow="never" class="table-card">
-      <el-table :data="tableData" style="width: 100%" stripe size="large">
+      <el-table :data="tableData" style="width: 100%" stripe size="large" :row-class-name="rowClass">
         <el-table-column prop="recordDate" label="记录日期" width="180" sortable />
         <el-table-column prop="weight" label="体重 (kg)" width="120" />
         <el-table-column prop="heartRate" label="心率 (bpm)" width="120" />
@@ -29,6 +29,11 @@
         </el-table-column>
         <el-table-column prop="steps" label="步数" width="120" />
         <el-table-column prop="bloodSugar" label="血糖 (mmol/L)" width="150" />
+        <el-table-column prop="alarmStatus" label="报警状态" width="120">
+          <template #default="scope">
+            <el-tag :type="scope.row.alarmStatus === 1 ? 'danger' : 'info'">{{ scope.row.alarmStatus === 1 ? '已报警' : '未报警' }}</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" fixed="right">
           <template #default="scope">
             <el-button link type="primary" size="small" @click="handleEdit(scope.row)">编辑</el-button>
@@ -219,9 +224,9 @@ const handleDelete = (row: any) => {
     margin-bottom: 20px;
   }
   
-  .table-card {
-    border-radius: 8px;
-  }
+.table-card {
+  border-radius: 8px;
+}
   
   .pagination {
     margin-top: 20px;
@@ -230,3 +235,7 @@ const handleDelete = (row: any) => {
   }
 }
 </style>
+const rowClass = ({ row }: any) => {
+  return row.alarmStatus === 1 ? 'alarm-row' : ''
+}
+.alarm-row { background: #fde2e2 }

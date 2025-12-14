@@ -50,6 +50,7 @@ public class UserController {
         }
 
         user.setCreateTime(LocalDateTime.now());
+        user.setRole("USER");
         userMapper.insert(user);
         result.put("code", 200);
         result.put("msg", "注册成功");

@@ -8,13 +8,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("sys_user")
-public class User {
+@TableName("reminder_template")
+public class ReminderTemplate {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private String username;
-    private String password;
-    private String nickname;
-    private String role;
+    private String name;
+    private String content;
+    private String triggerTime;
+    private Integer enabled;
     private LocalDateTime createTime;
 }

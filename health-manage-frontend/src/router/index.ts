@@ -17,6 +17,11 @@ const routes = [
         component: () => import('../views/Dashboard.vue')
       },
       {
+        path: 'profile',
+        name: 'Profile',
+        component: () => import('../views/Profile.vue')
+      },
+      {
         path: 'health-data',
         name: 'HealthData',
         component: () => import('../views/HealthData.vue')
@@ -30,6 +35,26 @@ const routes = [
         path: 'diet',
         name: 'Diet',
         component: () => import('../views/Diet.vue')
+      },
+      {
+        path: 'admin',
+        name: 'AdminDashboard',
+        component: () => import('../views/admin/AdminDashboard.vue')
+      },
+      {
+        path: 'admin/users',
+        name: 'AdminUsers',
+        component: () => import('../views/admin/AdminUsers.vue')
+      },
+      {
+        path: 'admin/templates',
+        name: 'AdminTemplates',
+        component: () => import('../views/admin/AdminTemplates.vue')
+      }
+      ,{
+        path: 'admin/health-records',
+        name: 'AdminHealthRecords',
+        component: () => import('../views/admin/AdminHealthRecords.vue')
       }
     ]
   }
@@ -45,7 +70,12 @@ router.beforeEach((to, from, next) => {
   if (to.path !== '/login' && !user) {
     next('/login')
   } else {
-    next()
+    const u = user ? JSON.parse(user) : {}
+    if (to.path.startsWith('/admin') && u.role !== 'ADMIN') {
+      next('/dashboard')
+    } else {
+      next()
+    }
   }
 })
 

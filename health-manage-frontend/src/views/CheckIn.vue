@@ -7,7 +7,7 @@
       </el-button>
     </div>
 
-    <div class="tasks-grid">
+  <div class="tasks-grid">
       <div v-if="tasks.length === 0" class="empty-tip">
         暂无打卡任务，点击右上角添加
       </div>
@@ -27,12 +27,32 @@
           <h3>{{ task.name }}</h3>
           <p>{{ task.desc }}</p>
         </div>
-        <div class="status-icon">
-          <el-icon v-if="task.completed" color="#67C23A" size="24"><CircleCheckFilled /></el-icon>
-          <el-icon v-else color="#E4E7ED" size="24"><CircleCheck /></el-icon>
-        </div>
+      <div class="status-icon">
+        <el-icon v-if="task.completed" color="#67C23A" size="24"><CircleCheckFilled /></el-icon>
+        <el-icon v-else color="#E4E7ED" size="24"><CircleCheck /></el-icon>
       </div>
     </div>
+  </div>
+
+  <el-card shadow="never" class="history-card" style="margin-top: 20px">
+    <template #header>
+      <div class="card-header">
+        <span>历史打卡记录</span>
+        <div style="display:flex;gap:10px;align-items:center">
+          <el-date-picker v-model="historyRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" size="small" />
+          <el-button size="small" @click="fetchHistory">查询</el-button>
+        </div>
+      </div>
+    </template>
+    <el-table :data="historyData" stripe size="large">
+      <el-table-column prop="recordDate" label="日期" width="160" />
+      <el-table-column prop="taskId" label="任务ID" width="120" />
+      <el-table-column prop="taskName" label="任务名称" />
+    </el-table>
+    <div class="pagination">
+      <el-pagination background layout="prev, pager, next" :current-page="historyPage" :page-size="historyPageSize" :total="historyTotal" @current-change="handleHistoryPage" />
+    </div>
+  </el-card>
   </div>
 </template>
 
@@ -53,6 +73,11 @@ import {
 
 const tasks = ref<any[]>([])
 const userId = JSON.parse(localStorage.getItem('user') || '{}').id
+const historyRange = ref<[Date, Date] | null>(null)
+const historyData = ref<any[]>([])
+const historyPage = ref(1)
+const historyPageSize = ref(10)
+const historyTotal = ref(0)
 
 const fetchTasks = async () => {
   try {
@@ -106,6 +131,31 @@ const addTask = () => {
     }
   }).catch(() => {})
 }
+
+const fetchHistory = async () => {
+  try {
+    const params: any = { userId, page: historyPage.value, pageSize: historyPageSize.value }
+    if (historyRange?.value && historyRange.value.length === 2) {
+      const toStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+      params.startDate = toStr(historyRange.value[0])
+      params.endDate = toStr(historyRange.value[1])
+    }
+    const res = await api.get('/checkin/history', { params })
+    if (res.code === 200) {
+      historyData.value = res.data
+      historyTotal.value = res.total || 0
+    }
+  } catch (e) {}
+}
+
+const handleHistoryPage = (p: number) => {
+  historyPage.value = p
+  fetchHistory()
+}
+
+onMounted(() => {
+  if (userId) fetchHistory()
+})
 </script>
 
 <style scoped lang="scss">
@@ -135,7 +185,7 @@ const addTask = () => {
     }
   }
 
-  .task-card {
+.task-card {
     background: white;
     border-radius: 12px;
     padding: 20px;
@@ -188,4 +238,6 @@ const addTask = () => {
     }
   }
 }
+.history-card { border-radius: 12px; }
+.pagination { display:flex; justify-content:flex-end; margin-top:10px; }
 </style>

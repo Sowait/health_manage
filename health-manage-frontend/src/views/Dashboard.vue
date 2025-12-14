@@ -68,7 +68,15 @@
         <el-card shadow="always">
           <template #header>
             <div class="chart-header">
-              <span>健康趋势</span>
+              <div class="title-with-hint">
+                <span>健康趋势</span>
+                <el-tooltip placement="bottom">
+                  <template #content>
+                    红色节点表示管理员提醒健康异常的数据
+                  </template>
+                  <el-icon class="hint-icon"><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </div>
               <el-radio-group v-model="chartPeriod" size="small">
                 <el-radio-button label="7days">近7天</el-radio-button>
                 <el-radio-button label="30days">近30天</el-radio-button>
@@ -76,6 +84,13 @@
             </div>
           </template>
           <div ref="trendChartRef" class="chart-container"></div>
+        </el-card>
+
+        <el-card shadow="always" style="margin-top: 20px">
+          <template #header>
+            <span>近7天摄入卡路里</span>
+          </template>
+          <div ref="calChartRef" class="chart-container" style="height:240px"></div>
         </el-card>
       </el-col>
       <el-col :span="8">
@@ -92,14 +107,6 @@
               <div class="icon-bg green"><el-icon><CircleCheck /></el-icon></div>
               <span>去打卡</span>
             </div>
-            <div class="shortcut-btn">
-              <div class="icon-bg orange"><el-icon><Bell /></el-icon></div>
-              <span>吃药提醒</span>
-            </div>
-            <div class="shortcut-btn">
-              <div class="icon-bg purple"><el-icon><DataAnalysis /></el-icon></div>
-              <span>健康报告</span>
-            </div>
           </div>
         </el-card>
         
@@ -112,6 +119,7 @@
             <el-checkbox v-model="task.completed" @change="toggleTask(task)">{{ task.name }}</el-checkbox>
           </div>
         </el-card>
+        
       </el-col>
     </el-row>
   </div>
@@ -122,14 +130,16 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import api from '../utils/api'
-import { Timer, Bicycle, User, Odometer, Edit, CircleCheck, Bell, DataAnalysis } from '@element-plus/icons-vue'
+import { Timer, Bicycle, User, Odometer, Edit, CircleCheck, QuestionFilled } from '@element-plus/icons-vue'
 
 const chartPeriod = ref('7days')
 const trendData = ref<any[]>([])
 const trendChartRef = ref(null)
+const calChartRef = ref(null)
 const todoList = ref<any[]>([])
 const userId = JSON.parse(localStorage.getItem('user') || '{}').id
 let myChart: echarts.ECharts | null = null
+let calChart: echarts.ECharts | null = null
 
 const kpiData = ref({
   heartRate: 0,
@@ -153,6 +163,23 @@ const fetchData = async () => {
   } catch (e) {
     // error
   }
+}
+
+const fetchCalories = async () => {
+  try {
+    const end = new Date()
+    const start = new Date(); start.setDate(end.getDate()-6)
+    const toStr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    const res = await api.get('/diet/history', { params: { userId, page: 1, pageSize: 100, startDate: toStr(start), endDate: toStr(end) } })
+    if (res.code === 200) {
+      const byDay: Record<string, number> = {}
+      const buildDates: string[] = []
+      for (let i=0;i<7;i++){ const d=new Date(start); d.setDate(start.getDate()+i); const k=toStr(d); buildDates.push(k); byDay[k]=0 }
+      res.data.forEach((r: any)=>{ const k=r.recordDate; byDay[k]=(byDay[k]||0)+(r.calories||0) })
+      const values = buildDates.map(d=>byDay[d]||0)
+      if (calChart) calChart.setOption({ xAxis: { type:'category', data: buildDates }, yAxis:{ type:'value' }, series:[{ type:'bar', data: values, itemStyle:{ color:'#E6A23C' } }] })
+    }
+  } catch(e) {}
 }
 
 const fetchTodoList = async () => {
@@ -189,12 +216,18 @@ const updateChart = (data: any[]) => {
   const dates = data.map(item => item.recordDate)
   const weights = data.map(item => item.weight)
   const bps = data.map(item => item.systolic)
+  const heartRates = data.map(item => item.heartRate)
+  const bloodSugars = data.map(item => item.bloodSugar)
+  const alarms = data.map(item => item.alarmStatus)
   
+  const mark = (val: any, alarm: any) => alarm === 1 && val != null ? { value: val, symbolSize: 10, itemStyle: { color: '#F56C6C' } } : val
   myChart.setOption({
     xAxis: { data: dates },
     series: [
-      { data: weights },
-      { data: bps }
+      { data: weights.map((v, i) => mark(v, alarms[i])) },
+      { data: bps.map((v, i) => mark(v, alarms[i])) },
+      { data: heartRates.map((v, i) => mark(v, alarms[i])) },
+      { data: bloodSugars.map((v, i) => mark(v, alarms[i])) }
     ]
   })
 }
@@ -217,7 +250,10 @@ const buildTrend = (n: number) => {
     arr.push({
       recordDate: s,
       weight: rec ? rec.weight : null,
-      systolic: rec ? rec.systolic : null
+      systolic: rec ? rec.systolic : null,
+      heartRate: rec ? rec.heartRate : null,
+      bloodSugar: rec ? rec.bloodSugar : null,
+      alarmStatus: rec ? rec.alarmStatus : 0
     })
   }
   return arr
@@ -231,7 +267,7 @@ const initChart = () => {
         trigger: 'axis'
       },
       legend: {
-        data: ['体重', '收缩压']
+        data: ['体重', '收缩压', '心率', '血糖']
       },
       grid: {
         left: '3%',
@@ -261,10 +297,28 @@ const initChart = () => {
           smooth: true,
           data: [],
           itemStyle: { color: '#35495e' }
+        },
+        {
+          name: '心率',
+          type: 'line',
+          smooth: true,
+          data: [],
+          itemStyle: { color: '#E6A23C' }
+        },
+        {
+          name: '血糖',
+          type: 'line',
+          smooth: true,
+          data: [],
+          itemStyle: { color: '#9B59B6' }
         }
       ]
     }
     myChart.setOption(option)
+  }
+  if (calChartRef.value) {
+    calChart = echarts.init(calChartRef.value)
+    calChart.setOption({ xAxis:{ type:'category', data:[] }, yAxis:{ type:'value' }, series:[{ type:'bar', data:[] }] })
   }
 }
 
@@ -273,6 +327,7 @@ onMounted(() => {
   if (userId) {
     fetchData()
     fetchTodoList()
+    fetchCalories()
   }
   window.addEventListener('resize', resizeChart)
 })
@@ -280,10 +335,12 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', resizeChart)
   if (myChart) myChart.dispose()
+  if (calChart) calChart.dispose()
 })
 
 const resizeChart = () => {
   if (myChart) myChart.resize()
+  if (calChart) calChart.resize()
 }
 
 watch(chartPeriod, () => {
@@ -346,12 +403,15 @@ watch(chartPeriod, () => {
     }
   }
 
-  .charts-row {
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+.charts-row {
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .title-with-hint { display:flex; align-items:center; gap:6px }
+  .hint-icon { cursor:pointer; color:#909399 }
+  .hint-icon:hover { color:#606266 }
     
     .chart-container {
       height: 300px;

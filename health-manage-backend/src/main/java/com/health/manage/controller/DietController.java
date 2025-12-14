@@ -24,7 +24,7 @@ public class DietController {
     public Map<String, Object> list(@RequestParam Long userId, @RequestParam String date) {
         Map<String, Object> result = new HashMap<>();
         LocalDate recordDate = LocalDate.parse(date);
-        
+
         QueryWrapper<DietRecord> query = new QueryWrapper<>();
         query.eq("user_id", userId).eq("record_date", recordDate);
         List<DietRecord> list = dietRecordMapper.selectList(query);
@@ -43,6 +43,36 @@ public class DietController {
         
         result.put("code", 200);
         result.put("data", meals);
+        return result;
+    }
+
+    @GetMapping("/history")
+    public Map<String, Object> history(
+            @RequestParam Long userId,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        Map<String, Object> result = new HashMap<>();
+        QueryWrapper<DietRecord> query = new QueryWrapper<>();
+        query.eq("user_id", userId);
+        if (startDate != null && !startDate.isEmpty()) {
+            query.ge("record_date", LocalDate.parse(startDate));
+        }
+        if (endDate != null && !endDate.isEmpty()) {
+            query.le("record_date", LocalDate.parse(endDate));
+        }
+        query.orderByDesc("record_date");
+
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<DietRecord> p =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, pageSize);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<DietRecord> pageResult =
+                dietRecordMapper.selectPage(p, query);
+
+        result.put("code", 200);
+        result.put("data", pageResult.getRecords());
+        result.put("total", pageResult.getTotal());
         return result;
     }
 

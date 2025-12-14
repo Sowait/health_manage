@@ -9,13 +9,16 @@ USE health_manage_db;
 -- ==========================================
 
 -- 1.1 用户表
+DROP TABLE IF EXISTS sys_user;
 CREATE TABLE IF NOT EXISTS sys_user (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
     password VARCHAR(100) NOT NULL COMMENT '密码',
     nickname VARCHAR(50) COMMENT '昵称',
+    role VARCHAR(20) NOT NULL DEFAULT 'USER' COMMENT '角色',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
 ) COMMENT '用户表';
+
 
 -- 1.2 健康数据表
 CREATE TABLE IF NOT EXISTS health_data (
@@ -31,6 +34,9 @@ CREATE TABLE IF NOT EXISTS health_data (
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_user_date (user_id, record_date)
 ) COMMENT '健康数据表';
+
+-- 增加报警状态字段（未报警=0，已报警=1）
+ALTER TABLE health_data ADD COLUMN IF NOT EXISTS alarm_status TINYINT NOT NULL DEFAULT 0;
 
 -- 1.3 打卡任务表
 CREATE TABLE IF NOT EXISTS check_in_task (
@@ -69,9 +75,13 @@ CREATE TABLE IF NOT EXISTS diet_record (
 -- 2. 数据初始化
 -- ==========================================
 
--- 2.1 插入/更新管理员用户 (ID 固定为 1)
-INSERT INTO sys_user (id, username, password, nickname) VALUES (1, 'admin', '123456', '韩五')
-ON DUPLICATE KEY UPDATE password=VALUES(password), nickname=VALUES(nickname);
+-- 2.1 插入/更新内置用户
+-- 将原 admin 作为普通用户保留（ID=1），新增管理员 admin2（ID=2）
+INSERT INTO sys_user (id, username, password, nickname, role) VALUES (1, 'admin', '123456', '韩五', 'USER')
+ON DUPLICATE KEY UPDATE password=VALUES(password), nickname=VALUES(nickname), role=VALUES(role);
+
+INSERT INTO sys_user (id, username, password, nickname, role) VALUES (2, 'admin2', '123456', '管理员', 'ADMIN')
+ON DUPLICATE KEY UPDATE password=VALUES(password), nickname=VALUES(nickname), role=VALUES(role);
 
 -- 2.2 插入健康数据 (admin, id=1)
 INSERT INTO health_data (user_id, weight, heart_rate, systolic, diastolic, steps, blood_sugar, record_date) VALUES
@@ -93,6 +103,24 @@ INSERT INTO check_in_task (user_id, task_name, icon, color, target_desc) VALUES
 (1, '多喝水', 'GobletFull', '#67C23A', '目标：2000ml'),
 (1, '早睡', 'Moon', '#909399', '23:00 前睡觉'),
 (1, '吃水果', 'Apple', '#F56C6C', '每天一个苹果');
+
+CREATE TABLE IF NOT EXISTS check_in_task_template (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    task_name VARCHAR(50) NOT NULL,
+    icon VARCHAR(50),
+    color VARCHAR(20),
+    target_desc VARCHAR(50),
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
+) COMMENT '系统默认打卡任务模板';
+
+CREATE TABLE IF NOT EXISTS reminder_template (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    content VARCHAR(200) NOT NULL,
+    trigger_time VARCHAR(20),
+    enabled TINYINT(1) DEFAULT 1,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
+) COMMENT '提醒模板';
 
 -- 2.4 插入饮食记录 (admin, id=1)
 DELETE FROM diet_record WHERE user_id = 1 AND record_date = CURDATE();

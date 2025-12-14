@@ -23,4 +23,5 @@ public class HealthData {
     private BigDecimal bloodSugar;
     private LocalDate recordDate;
     private LocalDateTime createTime;
+    private Integer alarmStatus;
 }
